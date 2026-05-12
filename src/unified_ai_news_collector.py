@@ -1088,6 +1088,21 @@ def optimal_fallback(source: dict[str, Any], success_mode: str) -> str:
         return "Install/use Scrapling for adaptive selectors or anti-bot friction."
     return "Try Crawl4AI for clean article extraction; Scrapy if this becomes a scheduled crawler."
 
+def extract_article_content(url: str) -> str:
+    try:
+        import httpx
+        from bs4 import BeautifulSoup
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"}
+        with httpx.Client(timeout=10.0, follow_redirects=True, verify=False) as client:
+            resp = client.get(url, headers=headers)
+            resp.raise_for_status()
+            soup = BeautifulSoup(resp.content, "html.parser")
+            paragraphs = soup.find_all("p")
+            content = "\n\n".join(p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True))
+            return content
+    except Exception as e:
+        return f"Error extracting content: {e}"
+
 
 def test_source(source: dict[str, Any]) -> dict[str, Any]:
     attempts: list[dict[str, Any]] = []
@@ -1188,6 +1203,12 @@ def test_source(source: dict[str, Any]) -> dict[str, Any]:
         target_url = entries[0].get("link") if entries else source.get("website")
         if target_url:
             crawl4ai_result = run_crawl4ai_extract(target_url)
+
+    if entries and bool(success_mode):
+        print(f"    -> Deep scraping {len(entries)} articles...", flush=True)
+        for entry in entries:
+            if "link" in entry and entry["link"]:
+                entry["raw_content"] = extract_article_content(entry["link"])
 
     return {
         "source": source["name"],

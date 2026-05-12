@@ -83,7 +83,8 @@ def normalize_payload(raw_report: dict) -> dict:
                 "raw_metadata": {
                     "author": art.get("author", ""),
                     "id": art.get("id", ""),
-                }
+                },
+                "raw_content": art.get("raw_content", "")
             }
             normalized_articles.append(norm_art)
             
