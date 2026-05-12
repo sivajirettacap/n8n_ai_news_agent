@@ -1,0 +1,41 @@
+name: Run AI News Scraper
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * 1' # Every Monday at 03:00 UTC (07:00 Dubai time)
+
+jobs:
+  scrape-and-send:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install Playwright Chromium
+        run: python -m playwright install chromium
+
+      - name: Run Scraper
+        run: python src/unified_ai_news_collector.py
+
+      - name: Send Report to n8n
+        env:
+          N8N_WEBHOOK_URL: ${{ secrets.N8N_WEBHOOK_URL }}
+        run: python src/send_to_n8n.py
+
+      - name: Upload Output Artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ai_news_collection_output
+          path: ai_news_collection_output/

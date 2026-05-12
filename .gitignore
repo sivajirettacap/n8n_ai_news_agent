@@ -1,0 +1,10 @@
+.env
+__pycache__/
+*.pyc
+ai_news_collection_output/*.json
+ai_news_collection_output/*.csv
+ai_news_collection_output/*.md
+!ai_news_collection_output/.gitkeep
+.playwright/
+.pytest_cache/
+.DS_Store

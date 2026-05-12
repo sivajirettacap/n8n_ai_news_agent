@@ -1,0 +1,110 @@
+{
+  "name": "AI News Webhook to Supabase",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ai-news-intake",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "1e2f3g4h",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [ 0, 0 ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "workflow_runs",
+        "dataMode": "defineBelow",
+        "valuesToSend": {
+          "values": [
+            {
+              "column": "run_id",
+              "value": "={{ $json.body.run.run_id }}"
+            },
+            {
+              "column": "total_sources",
+              "value": "={{ $json.body.run.total_sources }}"
+            },
+            {
+              "column": "total_articles",
+              "value": "={{ $json.body.run.total_articles }}"
+            }
+          ]
+        }
+      },
+      "id": "2e3f4g5h",
+      "name": "Supabase - workflow_runs",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [ 250, 0 ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "body.articles",
+        "options": {}
+      },
+      "id": "3e4f5g6h",
+      "name": "Item Lists",
+      "type": "n8n-nodes-base.itemLists",
+      "typeVersion": 3,
+      "position": [ 500, 0 ]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "table": "raw_articles",
+        "columns": "article_id",
+        "dataMode": "autoMapInputData"
+      },
+      "id": "4e5f6g7h",
+      "name": "Supabase - raw_articles",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [ 750, 0 ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Supabase - workflow_runs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase - workflow_runs": {
+      "main": [
+        [
+          {
+            "node": "Item Lists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Item Lists": {
+      "main": [
+        [
+          {
+            "node": "Supabase - raw_articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1"
+}

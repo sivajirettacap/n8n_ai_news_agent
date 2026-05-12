@@ -1,0 +1,11 @@
+requests
+httpx
+feedparser
+parsel
+scrapy
+scrapling
+crawl4ai
+playwright
+beautifulsoup4
+lxml
+python-dotenv
