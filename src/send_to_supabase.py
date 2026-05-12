@@ -88,6 +88,13 @@ def normalize_payload(raw_report: dict) -> dict:
             }
             normalized_articles.append(norm_art)
             
+    # Deduplicate articles based on article_id to prevent PostgreSQL ON CONFLICT errors
+    unique_articles = {}
+    for art in normalized_articles:
+        unique_articles[art["article_id"]] = art
+        
+    unique_normalized = list(unique_articles.values())
+            
     payload = {
         "run": {
             "run_id": run_id,
@@ -97,9 +104,9 @@ def normalize_payload(raw_report: dict) -> dict:
             "total_sources": total_sources,
             "accessible_sources": accessible_sources,
             "inaccessible_sources": inaccessible_sources,
-            "total_articles": len(normalized_articles)
+            "total_articles": len(unique_normalized)
         },
-        "articles": normalized_articles
+        "articles": unique_normalized
     }
     
     return payload
