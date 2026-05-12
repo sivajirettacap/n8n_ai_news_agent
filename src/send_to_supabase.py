@@ -5,8 +5,6 @@ import uuid
 import glob
 import hashlib
 import datetime as dt
-import urllib.request
-import urllib.error
 from pathlib import Path
 
 try:
@@ -14,6 +12,8 @@ try:
     load_dotenv()
 except ImportError:
     pass
+
+from supabase import create_client, Client
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_DIR = ROOT / "ai_news_collection_output"
@@ -88,11 +88,6 @@ def normalize_payload(raw_report: dict) -> dict:
             normalized_articles.append(norm_art)
             
     payload = {
-        "pipeline": "capgemini_ai_newsletter",
-        "stage": "scraper_completed",
-        "schema_version": "v1",
-        "generated_at": raw_report.get("run_timestamp", now_iso),
-        "sent_at": now_iso,
         "run": {
             "run_id": run_id,
             "runner": "github_actions",
@@ -103,44 +98,17 @@ def normalize_payload(raw_report: dict) -> dict:
             "inaccessible_sources": inaccessible_sources,
             "total_articles": len(normalized_articles)
         },
-        "articles": normalized_articles,
-        "source_results": results,
-        "metadata": {
-            "intended_database": "supabase_postgres",
-            "n8n_next_stage": "store_raw_articles_then_agentic_processing"
-        }
+        "articles": normalized_articles
     }
     
     return payload
 
-def send_to_n8n(payload: dict, webhook_url: str):
-    data = json.dumps(payload).encode('utf-8')
-    req = urllib.request.Request(
-        webhook_url,
-        data=data,
-        headers={
-            'Content-Type': 'application/json',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
-        }
-    )
-    
-    try:
-        with urllib.request.urlopen(req, timeout=30) as response:
-            status_code = response.getcode()
-            response_body = response.read().decode('utf-8')
-            return status_code, response_body
-    except urllib.error.HTTPError as e:
-        print(f"HTTPError: {e.code} - {e.reason}")
-        print(f"Response: {e.read().decode('utf-8')}")
-        sys.exit(1)
-    except urllib.error.URLError as e:
-        print(f"URLError: {e.reason}")
-        sys.exit(1)
-
 def main():
-    webhook_url = os.environ.get("N8N_WEBHOOK_URL")
-    if not webhook_url:
-        print("ERROR: N8N_WEBHOOK_URL environment variable is missing.")
+    supabase_url = os.environ.get("SUPABASE_URL")
+    supabase_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    
+    if not supabase_url or not supabase_key:
+        print("ERROR: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set.")
         sys.exit(1)
         
     latest_report_path = find_latest_report()
@@ -160,21 +128,36 @@ def main():
     payload = normalize_payload(raw_report)
     
     run_info = payload["run"]
+    articles = payload["articles"]
+    
     print(f"Total Sources: {run_info['total_sources']}")
     print(f"Accessible Sources: {run_info['accessible_sources']}")
     print(f"Inaccessible Sources: {run_info['inaccessible_sources']}")
     print(f"Total Normalized Articles: {run_info['total_articles']}")
     
-    print("Sending payload to n8n webhook...")
-    status_code, response_body = send_to_n8n(payload, webhook_url)
+    print("Connecting to Supabase...")
+    supabase: Client = create_client(supabase_url, supabase_key)
     
-    print(f"n8n Response Status Code: {status_code}")
-    if not (200 <= status_code < 300):
-        print(f"ERROR: Non-2xx status code from n8n: {status_code}")
-        print(response_body)
+    print("Inserting run metadata into workflow_runs...")
+    try:
+        supabase.table("workflow_runs").upsert(run_info).execute()
+        print("Run metadata inserted.")
+    except Exception as e:
+        print(f"Error inserting run metadata: {e}")
         sys.exit(1)
         
-    print("Successfully sent to n8n.")
+    if articles:
+        print(f"Inserting {len(articles)} articles into raw_articles...")
+        try:
+            supabase.table("raw_articles").upsert(articles).execute()
+            print("Articles inserted successfully.")
+        except Exception as e:
+            print(f"Error inserting articles: {e}")
+            sys.exit(1)
+    else:
+        print("No articles to insert.")
+        
+    print("Successfully completed Supabase export.")
 
 if __name__ == "__main__":
     main()

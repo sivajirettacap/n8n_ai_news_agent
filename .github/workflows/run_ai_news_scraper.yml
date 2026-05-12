@@ -28,10 +28,11 @@ jobs:
       - name: Run Scraper
         run: python src/unified_ai_news_collector.py
 
-      - name: Send Report to n8n
+      - name: Send Report to Supabase
         env:
-          N8N_WEBHOOK_URL: ${{ secrets.N8N_WEBHOOK_URL }}
-        run: python src/send_to_n8n.py
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: python src/send_to_supabase.py
 
       - name: Upload Output Artifacts
         uses: actions/upload-artifact@v4
