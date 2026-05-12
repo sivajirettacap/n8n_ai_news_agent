@@ -1090,16 +1090,23 @@ def optimal_fallback(source: dict[str, Any], success_mode: str) -> str:
 
 def extract_article_content(url: str) -> str:
     try:
-        import httpx
         from bs4 import BeautifulSoup
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"}
-        with httpx.Client(timeout=10.0, follow_redirects=True, verify=False) as client:
-            resp = client.get(url, headers=headers)
-            resp.raise_for_status()
-            soup = BeautifulSoup(resp.content, "html.parser")
-            paragraphs = soup.find_all("p")
-            content = "\n\n".join(p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True))
-            return content
+        
+        # Try Scrapling first to bypass WAFs
+        result = fetch_url_scrapling(url)
+        
+        # Fallback to httpx if Scrapling fails or isn't installed
+        if not result.get("ok"):
+            result = fetch_url_httpx(url)
+            
+        if not result.get("ok"):
+            return f"Error extracting content: {result.get('error')}"
+            
+        text = text_from_body(result["body"], result["content_type"])
+        soup = BeautifulSoup(text, "html.parser")
+        paragraphs = soup.find_all("p")
+        content = "\n\n".join(p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True))
+        return content
     except Exception as e:
         return f"Error extracting content: {e}"
 
