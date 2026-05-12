@@ -38,7 +38,7 @@ def normalize_payload(raw_report: dict) -> dict:
     
     results = raw_report.get("results", [])
     total_sources = len(results)
-    accessible_sources = sum(1 for r in results if r.get("ok"))
+    accessible_sources = sum(1 for r in results if r.get("accessible"))
     inaccessible_sources = total_sources - accessible_sources
     
     normalized_articles = []
@@ -47,7 +47,7 @@ def normalize_payload(raw_report: dict) -> dict:
         source_name = source_res.get("source", "Unknown")
         category = source_res.get("category", "")
         priority = source_res.get("priority", "")
-        success_mode = "success" if source_res.get("ok") else "failed"
+        success_mode = "success" if source_res.get("accessible") else "failed"
         framework = source_res.get("framework_used", "")
         
         articles = source_res.get("articles", [])
