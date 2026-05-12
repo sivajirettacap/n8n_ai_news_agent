@@ -965,6 +965,7 @@ async def crawl4ai_extract(url: str) -> dict[str, Any]:
             "elapsed_ms": round((time.perf_counter() - started) * 1000),
             "framework_used": "crawl4ai",
             "sample_markdown": markdown[:500],
+            "markdown": markdown,
         }
     except Exception as exc:  # noqa: BLE001
         return {
@@ -1090,23 +1091,23 @@ def optimal_fallback(source: dict[str, Any], success_mode: str) -> str:
 
 def extract_article_content(url: str) -> str:
     try:
+        # Primary: Crawl4AI (as designed in original code for best markdown)
+        c4_result = run_crawl4ai_extract(url)
+        if c4_result.get("ok") and c4_result.get("markdown"):
+            return c4_result["markdown"]
+            
+        # Fallback: Scrapling + BeautifulSoup
         from bs4 import BeautifulSoup
-        
-        # Try Scrapling first to bypass WAFs
-        result = fetch_url_scrapling(url)
-        
-        # Fallback to httpx if Scrapling fails or isn't installed
-        if not result.get("ok"):
-            result = fetch_url_httpx(url)
-            
-        if not result.get("ok"):
-            return f"Error extracting content: {result.get('error')}"
-            
-        text = text_from_body(result["body"], result["content_type"])
-        soup = BeautifulSoup(text, "html.parser")
-        paragraphs = soup.find_all("p")
-        content = "\n\n".join(p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True))
-        return content
+        s_result = fetch_url_scrapling(url)
+        if s_result.get("ok"):
+            text = text_from_body(s_result["body"], s_result["content_type"])
+            soup = BeautifulSoup(text, "html.parser")
+            paragraphs = soup.find_all("p")
+            content = "\n\n".join(p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True))
+            if content.strip():
+                return content
+                
+        return f"Error extracting content: {c4_result.get('error')} | Scrapling fallback failed."
     except Exception as e:
         return f"Error extracting content: {e}"
 
